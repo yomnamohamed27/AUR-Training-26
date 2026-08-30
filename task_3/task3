@@ -1,0 +1,191 @@
+from abc import ABC, abstractmethod
+from enum import Enum
+
+class ItemStatus(Enum):
+    AVAILABLE = "AVAILABLE"
+    CHECKED_OUT = "CHECKED_OUT"
+    LOST = "LOST"
+
+#----------------libraryitem----------------
+class LibraryItem(ABC):
+    def __init__(self ,status):
+        self._status = ItemStatus(status)
+    @property
+    def status(self):
+        return self._status
+
+    def checkout(self):
+        if self._status == ItemStatus.AVAILABLE:
+            self._status = ItemStatus.CHECKED_OUT
+        else:
+            print("ERORR")  
+
+    def return_item(self):
+        if self._status == ItemStatus.CHECKED_OUT:
+            self._status = ItemStatus.AVAILABLE
+        else:
+            print("ERROR")
+
+    def mark_lost(self):
+        if self._status == ItemStatus.AVAILABLE or self._status == ItemStatus.CHECKED_OUT:
+            self._status = ItemStatus.LOST
+        else:
+            print("ERORR")    
+
+    def __lt__(self ,other):
+        return self.title < other.title
+
+    def __str__(self):
+        return f"{self.title} ({self.type})-{self.status.value}"    
+
+    @classmethod
+    def from_dict(cls ,data):
+        ItemType = data["type"]
+        type_registry = {"Book":Book,"DVD":DvD,"Magazine":Magazine,"AudioBook":AudioBook}
+        ItemClass = type_registry[ItemType]
+        return ItemClass(**data)  #34an ngeb kol eli f el dictionary
+
+    @abstractmethod
+    def Loan_Period(self):
+        pass
+     
+#--------------------------book---------------------------
+class Book(LibraryItem):
+    def __init__(self ,type:str ,title:str ,author:str ,isbn:str ,status:str):
+        super().__init__(status)
+        self.type = type
+        self.title = title
+        self.author = author
+        self.isbn = isbn
+    def __repr__(self):
+        return f"book(type='{self.type}',title='{self.title}',author:'{self.author}',isbn='{self.isbn}',status='{self._status}')" 
+
+    @staticmethod
+    def CheckISBN(isbn:str): # ISBN-13
+        if len(isbn) != 13:
+            return False
+        if  not isbn.isdigit():
+            return False
+        Total = 0
+        for i in range(12):
+            if i % 2 == 0:
+                Total += int(isbn[i]) * 1
+            else:
+                Total += int(isbn[i]) * 3
+        CheckDigit = (10 - (Total % 10)) % 10
+        return CheckDigit == int(isbn[12])            
+
+    def Loan_Period(self):
+        return 21 
+    
+#-----------------------DVD-------------------------
+class DvD(LibraryItem):
+    def __init__(self ,type:str ,title:str ,director:str ,status:str):
+        super().__init__(status)
+        self.type = type
+        self.title = title
+        self.director = director
+    def __repr__(self):
+        return f"DVD(type='{self.type}',title='{self.title}',director='{self.director}',status='{self.status}')" 
+   
+    def Loan_Period(self):
+        return 5   #days
+
+#-----------------------magazine---------------------
+class Magazine(LibraryItem):
+    def __init__(self ,type:str ,title:str ,issue:str, status:str):
+        super().__init__(status)
+        self.type = type
+        self.title = title
+        self.issue = issue
+    def __repr__(self):
+        return f"magazine (type = '{self.type}',title = '{self.title}',issue = '{self.issue}',status ='{self._status}')"
+
+    def Loan_Period(self):
+        return 14 #days 
+
+#-------------------audiobook----------------------
+class AudioBook(LibraryItem):
+    def __init__(self ,type:str ,title:str ,audio:str ,status:str):
+        super().__init__(status)
+        self.type = type
+        self.title = title
+        self.audio = audio
+    def __repr__(self):
+        return f"audiobook (type = '{self.type}' ,title = '{self.title} ,audio = '{self.audio}' ,status = '{self._status}')"    
+
+    def Loan_Period(self):
+        return 7 #days
+
+
+
+
+#--------------------library-----------------------
+class library:
+    def __init__(self):
+        self.Items = [] # empty list 
+    def add_Items(self ,Item):
+        self.Items.append(Item)
+
+    def checkout(self ,Item):
+        if Item in self.Items:
+            Item.checkout()
+
+    def return_item(self ,Item):
+        if Item in self.Items:
+            Item.return_item()
+
+    def find_by_title(self ,title):
+        for Item in self.Items:
+            if Item.title == title:
+                return Item
+        print("NOT FOUND")
+        return None  
+
+    def list_available(self):
+        availableItems = [] #empty list
+        for Item in self.Items:
+            if Item.status == ItemStatus.AVAILABLE:
+                availableItems.append(Item)
+        return availableItems           
+
+#-------------------database--------------------------
+class Database:
+    def __init__(self):
+        self.file = "database.txt"
+
+    def save_items(self ,data):
+        with open(self.file,"w") as file: #write fel file
+            for Item in data:
+                if isinstance(Item,Book):
+                    file.write(f"type={Item.type}|title={Item.title}|author={Item.author}|isbn={Item.isbn}|status={Item.status.value}\n")
+                elif isinstance(Item,DvD):
+                    file.write(f"type={Item.type}|title={Item.title}|director={Item.director}|status={Item.status.value}\n")   
+                elif isinstance(Item,Magazine):
+                    file.write(f"type={Item.type}|title={Item.title}|issue={Item.issue}|status={Item.status.value}\n")
+
+    def load_items(self):
+        loaded = [] #empty list
+        with open(self.file,"r") as file: #read mn el file
+            for Item in file:
+                Data = {} #empty dictionary
+                items = Item.strip().split("|")    
+                for i in items:
+                    key ,value = i.split("=")
+                    Data[key] = value
+                item = LibraryItem.from_dict(Data)
+                loaded.append(item)
+
+        return loaded        
+
+database = Database()
+book = Book ("Book" ,"Dune" ,"Frank Herbert" ,"9780441013593" ,"AVAILABLE")
+dvd = DvD("DVD" ,"Inception" ,"Christopher Nolan" ,"CHECKED_OUT")
+magazine = Magazine("Magazine" ,"National Geographic" ,"2026-08" ,"AVAILABLE")
+items = [book,dvd,magazine]
+
+database.save_items(items)
+loaded = database.load_items()
+
+for item in loaded:
+    print(item)
